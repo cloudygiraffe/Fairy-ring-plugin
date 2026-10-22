@@ -242,10 +242,57 @@ end)
 -- Drive the scan from the server tick
 --------------------------------------------------------------------------------
 
-say("Scanning variable names. This takes a minute or two...")
-local scanFinished = false
+-- The variable-name scan is no longer needed (the client's `pan VarPlayer`
+-- list has the names); set SCAN_NAMES = true to run it again.
+local SCAN_NAMES = false
+if SCAN_NAMES then
+    say("Scanning variable names. This takes a minute or two...")
+end
+local scanFinished = not SCAN_NAMES
 Event.ServerLogic.Subscribe("fairyDiscoveryScan", function()
     if not scanFinished then
         scanFinished = not scanStep()
     end
+end)
+
+--------------------------------------------------------------------------------
+-- 4: travel-log readout (from the client's own variable list). Prints which
+-- codes the game has marked, plus the multi-code destinations, so they can be
+-- compared with the travel log's "Discovered: x/y".
+--------------------------------------------------------------------------------
+
+local function readVarbit(variableId)
+    local ok, value = pcall(function() return var.VarPlayer.FromID(variableId).value end)
+    if ok then return value end
+    return nil
+end
+
+local function travelLogReadout()
+    local letters = { { "A", "B", "C", "D" }, { "I", "J", "K", "L" }, { "P", "Q", "R", "S" } }
+    local marked, index = {}, 0
+    for _, a in ipairs(letters[1]) do
+        for _, b in ipairs(letters[2]) do
+            for _, c in ipairs(letters[3]) do
+                if readVarbit(-12080 - index) == 1 then
+                    table.insert(marked, a .. b .. c)
+                end
+                index = index + 1
+            end
+        end
+    end
+    say("TRAVEL LOG: " .. #marked .. " codes marked: " .. table.concat(marked, " "))
+    say("TRAVEL LOG extras: HIDEOUT=" .. tostring(readVarbit(-12077))
+        .. " RIFT=" .. tostring(readVarbit(-9964))
+        .. " ORDER=" .. tostring(readVarbit(-12078))
+        .. " KHARAZI_UNLOCKED=" .. tostring(readVarbit(-36857))
+        .. " LOST_GROVE_UNLOCKED=" .. tostring(readVarbit(-30277))
+        .. " FENMOOR_UNLOCKED=" .. tostring(readVarbit(-62149)))
+end
+
+-- The scan above is slow and no longer needed; the readout prints once a few
+-- seconds after loading.
+local readoutTicks = 0
+Event.ServerLogic.Subscribe("fairyDiscoveryReadout", function()
+    readoutTicks = readoutTicks + 1
+    if readoutTicks == 5 then travelLogReadout() end
 end)

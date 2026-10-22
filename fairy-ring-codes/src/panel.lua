@@ -131,6 +131,9 @@ function Panel:Build(root, searchText, modeId)
     ringList.dropdownMaxVisibleEntries = 0
     ringList:Subscribe(ui.Hook.ONSELECTIONCHANGED, function(component)
         local chosen = selectedId(component)
+        if chosen ~= nil then
+            chosen = self:OurId(chosen)
+        end
         if chosen then
             self.callbacks.onSelected(chosen)
         end
@@ -169,20 +172,62 @@ end
 
 -- Replaces the list contents. `entries` is a list of { id = n, label = "..." }.
 -- The selected entry is kept if it is still in the list.
+--
+-- Uses SetEntries, which clears and refills the list in one call: on the
+-- beta client, Clear() followed by Add() left old rows behind. SetEntries
+-- gives the rows its own IDs, so they are mapped back to ours by label.
 function Panel:SetListEntries(entries, keepSelectedId)
     if not self:IsVisible() then
         return
     end
     local list = self.parts.list
-    pcall(function()
-        list:Clear()
-        for _, entry in ipairs(entries) do
-            list:Add(entry.label, entry.id)
-        end
-        if keepSelectedId and list:HasEntry(keepSelectedId) then
-            list:SetEntrySelected(keepSelectedId, true, false)
-        end
-    end)
+    local labels, ourIdByLabel = {}, {}
+    for index, entry in ipairs(entries) do
+        labels[index] = entry.label
+        ourIdByLabel[entry.label] = entry.id
+    end
+    self.ourIdByRowId, self.rowIdByOurId = {}, {}
+
+    local ok, done = pcall(function() return list:SetEntries(labels) end)
+    if ok and done ~= false then
+        pcall(function()
+            for _, row in ipairs(list.entries) do
+                local ourId = ourIdByLabel[row.text]
+                if ourId then
+                    self.ourIdByRowId[row.id] = ourId
+                    self.rowIdByOurId[ourId] = row.id
+                end
+            end
+        end)
+    end
+    if next(self.ourIdByRowId) == nil then
+        -- SetEntries unavailable (or its rows unreadable): add rows one by one
+        -- with our own IDs.
+        self.ourIdByRowId, self.rowIdByOurId = nil, nil
+        pcall(function()
+            list:Clear()
+            for _, entry in ipairs(entries) do
+                list:Add(entry.label, entry.id)
+            end
+        end)
+    end
+
+    if keepSelectedId then
+        local rowId = self.rowIdByOurId and self.rowIdByOurId[keepSelectedId] or keepSelectedId
+        pcall(function()
+            if list:HasEntry(rowId) then
+                list:SetEntrySelected(rowId, true, false)
+            end
+        end)
+    end
+end
+
+-- Turns a row ID from the ring list back into the ID main.lua gave it.
+function Panel:OurId(rowId)
+    if self.ourIdByRowId then
+        return self.ourIdByRowId[rowId]
+    end
+    return rowId
 end
 
 -- Fills in the text areas. `view` is built by main.lua with:

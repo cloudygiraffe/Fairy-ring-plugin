@@ -64,6 +64,7 @@ local DOCUMENTED_PROPERTIES = {
 }
 
 local components = {}
+local nextRowId = 5000 -- SetEntries row IDs, deliberately unlike the plugin's own
 local function fakeComponent(kind)
     local state = { kind = kind, hooks = {}, visibleGlobal = true, entries = {}, selected = nil }
     local methods = {}
@@ -74,10 +75,24 @@ local function fakeComponent(kind)
     function methods.Subscribe(_, hook, callback) state.hooks[hook] = callback end
     if kind == "List" then
         function methods.Add(_, label, entryId)
-            table.insert(state.entries, { label = label, id = entryId })
+            for _, entry in ipairs(state.entries) do
+                if entry.id == entryId then return false end -- IDs must be unique
+            end
+            table.insert(state.entries, { label = label, text = label, id = entryId })
             return true
         end
-        function methods.Clear(_) state.entries = {} state.selected = nil end
+        -- Mimics what the beta client appeared to do on October 22nd, 2026:
+        -- Clear() left the old rows behind. The plugin must use SetEntries.
+        function methods.Clear(_) end
+        -- SetEntries(labels): clears, then adds rows with auto-incrementing IDs.
+        function methods.SetEntries(_, labels)
+            state.entries, state.selected = {}, nil
+            for _, label in ipairs(labels) do
+                nextRowId = nextRowId + 1
+                table.insert(state.entries, { label = label, text = label, id = nextRowId })
+            end
+            return true
+        end
         function methods.HasEntry(_, entryId)
             for _, entry in ipairs(state.entries) do
                 if entry.id == entryId then return true end
@@ -242,7 +257,12 @@ check(string.find(summary.content, "1 discovered", 1, true) ~= nil, "summary cou
 check(button.label == "Mark as not discovered", "button now offers to undo")
 check(database["visited:CloudGiraffe"] and database["visited:CloudGiraffe"].DKR == true,
     "visit saved under the character's name")
-check(ringList.selected == edgeville.id, "selection survives the list refresh")
+local selectedLabel = nil
+for _, entry in ipairs(ringList.entries) do
+    if entry.id == ringList.selected then selectedLabel = entry.label end
+end
+check(selectedLabel ~= nil and string.find(selectedLabel, "DKR", 1, true) == 1,
+    "selection survives the list refresh (got " .. tostring(selectedLabel) .. ")")
 
 -- Filter to rings not visited yet.
 search.content = ""
