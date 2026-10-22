@@ -245,6 +245,11 @@ check(#ringList.entries == 59, "all 56 rings plus 3 multi-code destinations are 
     .. #ringList.entries .. ")")
 check(button.hidden == true, "button hidden until a ring is selected")
 
+-- A search with no matches empties the list (no stale rows left behind).
+search.content = "zzzz"
+search.hooks.ONCONTENTCHANGED(search, "CONTENT_CHANGE", "zzzz")
+check(#ringList.entries == 0, "a search with no matches shows no rows (got " .. #ringList.entries .. ")")
+
 -- Search for "dk".
 search.content = "dk"
 search.hooks.ONCONTENTCHANGED(search, "CONTENT_CHANGE", "dk")

@@ -200,9 +200,11 @@ function Panel:SetListEntries(entries, keepSelectedId)
     end
     self.ourIdByRowId, self.rowIdByOurId = {}, {}
 
+    -- 1. Preferred: SetEntries(labels) keeps our order; read its row IDs back.
     local ok, done = pcall(function() return list:SetEntries(labels) end)
-    if ok and done ~= false then
-        pcall(function()
+    local setEntriesWorked = ok and done ~= false
+    if setEntriesWorked then
+        local readable = pcall(function()
             for _, row in ipairs(list.entries) do
                 local ourId = ourIdByLabel[row.text]
                 if ourId then
@@ -211,10 +213,16 @@ function Panel:SetListEntries(entries, keepSelectedId)
                 end
             end
         end)
-    end
-    if next(self.ourIdByRowId) == nil then
-        -- SetEntries unavailable (or its rows unreadable): add rows one by one
-        -- with our own IDs.
+        -- An empty result (e.g. a search with no matches) is fine as it is.
+        -- If rows exist but couldn't be read back, refill with the map form,
+        -- which uses our own IDs (row order is then up to the client).
+        if #entries > 0 and (not readable or next(self.ourIdByRowId) == nil) then
+            self.ourIdByRowId, self.rowIdByOurId = nil, nil
+            pcall(function() list:SetEntries(ourIdByLabel) end)
+        end
+    else
+        -- 2. SetEntries unavailable: add rows one by one with our own IDs.
+        -- (On the beta client Clear() may leave old rows, so this is a last resort.)
         self.ourIdByRowId, self.rowIdByOurId = nil, nil
         pcall(function()
             list:Clear()
