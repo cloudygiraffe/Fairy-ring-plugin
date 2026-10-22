@@ -38,6 +38,9 @@ The panel (open from the Plugins ribbon window) has:
 - **Suggested favourites** for clue scrolls and for travel, best first, with
   the reason for each. The plugin can't set your in-game favourites for you
   (that would be acting on your behalf), but it shows which ones to set.
+  Clue picks favour elite and master scan areas with no lodestone (Piscatoris,
+  Haunted Woods, Kharazi, the East Kharidian Desert, ...). Zanaris is never
+  suggested, since the ring's own right-click option goes there.
 - **Mark as discovered** by hand for anything the automatic check misses.
   Everything is saved separately for each character.
 - A reminder of the quests every ring needs.

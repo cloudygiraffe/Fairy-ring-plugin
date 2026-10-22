@@ -105,7 +105,12 @@ function Filter.Apply(rings, searchText, modeKey, visited)
         local ordered = {}
         for _, suggestion in ipairs(suggestions) do
             local ring = byCode[suggestion.code]
-            if ring and Filter.MatchesSearch(ring, searchText) then
+            -- In these filters the search also looks at why a ring is
+            -- suggested, so "karamja" or "slayer" finds the right rings.
+            local query = normalise(searchText)
+            local matchesReason = query ~= ""
+                and string.find(string.lower(suggestion.reason), query, 1, true) ~= nil
+            if ring and (matchesReason or Filter.MatchesSearch(ring, searchText)) then
                 table.insert(ordered, ring)
             end
         end

@@ -205,6 +205,35 @@ test("Game-reported visits combine with manual marks", function()
 end)
 
 --------------------------------------------------------------------------------
+-- Suggested favourites
+--------------------------------------------------------------------------------
+
+test("Every suggested favourite is a real ring, listed once per list", function()
+    local Favourites = require("src/favourites")
+    for listName, suggestions in pairs(Favourites.LISTS) do
+        local seen = {}
+        eq(#suggestions >= 1, true, listName .. " has suggestions")
+        for _, suggestion in ipairs(suggestions) do
+            eq(Rings.Get(suggestion.code) ~= nil, true, listName .. " " .. suggestion.code)
+            eq(seen[suggestion.code], nil, "duplicate " .. suggestion.code)
+            eq(suggestion.code ~= "AIP", true, "AIP is never worth a slot")
+            seen[suggestion.code] = true
+        end
+    end
+end)
+
+test("Favourite filters keep the suggestion order and still search", function()
+    eq(codesOf(Filter.Apply(Rings.LIST, "", "clues", {})), "AKQ,ALQ,CJS,DLQ,AJR,BJS,CKR,DIP")
+    eq(codesOf(Filter.Apply(Rings.LIST, "karamja", "travel", {})), "CKR")
+end)
+
+test("Ring details mention why a ring is suggested", function()
+    local text = Display.Details(Rings.Get("CKR"), nil)
+    eq(string.find(text, "Suggested favourite for clues", 1, true) ~= nil, true, "clues")
+    eq(string.find(text, "Suggested favourite for travel", 1, true) ~= nil, true, "travel")
+end)
+
+--------------------------------------------------------------------------------
 -- Reading the game's fairy ring windows
 --------------------------------------------------------------------------------
 
