@@ -6,12 +6,12 @@
 -- time and Refresh() fills them in.
 --
 -- Layout, top to bottom:
---   title and summary ("56 rings | 12 visited | 6 need work before first use")
+--   title and summary ("56 rings | 12 discovered | 7 need work before first use")
 --   search box
---   filter dropdown (all / not visited / need work / new / with requirements)
+--   filter dropdown (all, not discovered, suggested favourites, need work, ...)
 --   the list of matching rings
 --   details for the selected ring
---   "Mark as visited" button
+--   "Mark as discovered" button
 --   the requirements every ring shares
 
 local Filter = require("src/filter")
@@ -24,7 +24,7 @@ local LINE = 20         -- height of a one-line text row
 local GAP = 4           -- space between rows
 local CONTROL = 28      -- height of the search box, dropdown and button
 local LIST_HEIGHT = 240 -- about 11 rings visible; the list scrolls
-local DETAIL_ROWS = 6
+local DETAIL_ROWS = 8
 
 -- Sequence entries in the list get IDs above this, so they never clash with
 -- ring IDs (which are their position in Rings.LIST).
@@ -145,7 +145,7 @@ function Panel:Build(root, searchText, modeId)
     button:SetPos(0, y)
     button:SetSize(0, CONTROL, 0.5, 0.0) -- half width
     button.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    button.label = "Mark as visited"
+    button.label = "Mark as discovered"
     button:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
         self.callbacks.onToggleVisited()
     end)

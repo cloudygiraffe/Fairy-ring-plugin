@@ -23,14 +23,23 @@ built** before you can teleport there.
 The panel (open from the Plugins ribbon window) has:
 
 - **Search** by code (`DKR`, `d k r`, or just `dk`) or by place (`canifis`).
-- **Filters:** all rings, not visited yet, need repairing or building, added
+- **Filters:** all rings, not discovered yet, suggested favourites for clues,
+  suggested favourites for travel, need repairing or building, added
   recently, or have a quest or skill requirement.
 - **The list** of all 56 single-code rings, plus the three destinations that
   take several codes in a row (Kethsi, the Fairy Queen's Hideout, Ork's Rift).
-  Tags show `[needs repair]`, `[needs building]`, `[new]` and `[visited]`.
+  Tags show `[needs repair]`, `[needs building]`, `[new]` and `[discovered]`.
 - **Details** for the selected ring: its requirement, exactly what to do if it
   needs repairing or building, tips, and when it was added.
-- **Mark as visited**, saved separately for each character.
+- **Automatic discovery:** open the game's fairy ring travel log (and scroll
+  through it) and every ring listed there is marked as discovered. The game
+  only lists rings you've been to, so whatever is missing goes into the
+  **Not discovered yet** filter.
+- **Suggested favourites** for clue scrolls and for travel, best first, with
+  the reason for each. The plugin can't set your in-game favourites for you
+  (that would be acting on your behalf), but it shows which ones to set.
+- **Mark as discovered** by hand for anything the automatic check misses.
+  Everything is saved separately for each character.
 - A reminder of the quests every ring needs.
 
 ### Rings that need work before first use
@@ -54,18 +63,26 @@ requirements and repair/build steps. They could sit side by side. If J3 ever
 covers unvisited rings, it would be worth merging efforts rather than
 duplicating.
 
-## Visited status
+## How discovery works
 
-The game clearly tracks which rings you've visited, but the variable isn't
-documented. For now you can mark rings by hand. The discovery tool in
-`tools/fairy-discovery` is built to find the game's own record on the beta
-world; once found, it goes into `src/sources/game_source.lua` and visits fill
-in automatically.
+Plugins can read the text in the game's own windows. While the fairy ring
+dial screen or travel log is open, the plugin reads every ring code and place
+name in it every couple of seconds. It never clicks or scrolls anything
+itself. If the game only builds the rows you can see, scrolling through the
+log lets it read the rest.
+
+**Still to do on the beta world:** the window IDs aren't documented, so the
+discovery tool in `tools/fairy-discovery` finds them. They go into
+`src/sources/log_reader.lua` (one line). The same tool also looks for a game
+variable that records visits, which would make detection work without opening
+the log at all (`src/sources/game_source.lua`).
 
 ## Plugin guidelines
 
 - Shows only public information (the Wiki's ring list) and your own progress.
-- Never sends input or performs actions. It does not dial rings for you.
+- Only reads the game's fairy ring windows; it never clicks, scrolls, dials or
+  changes them, and never sets favourites for you.
+- Never sends input or performs actions.
 - Needs no permissions.
 
 ## Repository layout
@@ -79,11 +96,13 @@ fairy-ring-codes/        the plugin itself (this folder goes in dev_plugins)
     dates.lua            US-style date formatting
     filter.lua           search and filter logic
     display.lua          all text shown to the player
-    visited.lua          visited marks, saved per character
+    favourites.lua       suggested favourites for clues and travel
+    visited.lua          discovered rings, saved per character
     panel.lua            the ribbon panel
     sources/
+      log_reader.lua     reads the game's travel log / dial screen
       game_source.lua    the game's own visited record (after discovery)
-tools/fairy-discovery/   beta-world tool that looks for that record
+tools/fairy-discovery/   beta-world tool that finds the window IDs and variables
 tests/                   unit tests and an end-to-end test with a fake API
 docs/DESIGN.md           how it works and open questions
 docs/TESTING.md          step-by-step beta world testing
@@ -111,6 +130,7 @@ filter). The tests will catch duplicate or impossible codes.
 
 - [ ] Replace `contactEmailAddress` in `plugin.json`.
 - [ ] Test every item in [docs/TESTING.md](docs/TESTING.md).
+- [ ] Add the travel log and dial screen IDs to `log_reader.lua`.
 - [ ] Wire up `game_source.lua` if the discovery tool finds the variable.
 - [ ] Re-read every file: Jagex's AI policy requires the author to have reviewed
       and understood all submitted code.

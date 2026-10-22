@@ -109,7 +109,36 @@ local function constructor(kind)
     return strict("ui." .. kind, { new = function() return fakeComponent(kind) end })
 end
 
+-- A fake travel log window: a list whose rows are text components, nested
+-- one level down, as a real interface would be.
+local travelLogOpen = false
+local function fakeRow(text)
+    return { content = text }
+end
+local fakeTravelLog = {
+    IterateStaticComponents = function(_, callback)
+        local list = {
+            content = "",
+            IterateStaticComponents = function() end,
+            IterateDynamicComponents = function(_, rowCallback)
+                for _, row in ipairs({ fakeRow("A I Q"), fakeRow("Asgarnia: Mudskipper Point"),
+                                       fakeRow("C K S"), fakeRow("Canifis"), fakeRow("Zanaris") }) do
+                    if rowCallback(row) then return end
+                end
+            end,
+        }
+        callback(list)
+    end,
+}
+
 ui = strict("ui", {
+    Interfaces = strict("ui.Interfaces", {
+        GetInterface = function(_, interfaceId)
+            if travelLogOpen and interfaceId == 999 then return fakeTravelLog end
+            return nil
+        end,
+        GetComponent = function() return nil end,
+    }),
     Text = constructor("Text"),
     InputField = constructor("InputField"),
     List = constructor("List"),
@@ -176,7 +205,7 @@ for _, component in ipairs(components) do
 end
 local summary, details = texts[2], texts[3]
 
-check(#filterList.entries == 5, "filter dropdown has 5 choices")
+check(#filterList.entries == 7, "filter dropdown has 7 choices")
 check(filterList.entries[1].label == "All rings", "filter choices keep their order")
 check(#ringList.entries == 59, "all 56 rings plus 3 multi-code destinations are listed (got "
     .. #ringList.entries .. ")")
@@ -195,12 +224,12 @@ end
 ringList:SetEntrySelected(edgeville.id, true)
 ringList.hooks.ONSELECTIONCHANGED(ringList, edgeville.id, 1)
 check(string.find(details.content, "Edgeville", 1, true) ~= nil, "details show Edgeville")
-check(button.hidden == false and button.label == "Mark as visited", "button offers to mark visited")
+check(button.hidden == false and button.label == "Mark as discovered", "button offers to mark visited")
 
 -- Mark it visited.
 button.hooks.ONBUTTONPRESSED(button)
-check(string.find(summary.content, "1 visited", 1, true) ~= nil, "summary counts the visit")
-check(button.label == "Mark as not visited", "button now offers to undo")
+check(string.find(summary.content, "1 discovered", 1, true) ~= nil, "summary counts the visit")
+check(button.label == "Mark as not discovered", "button now offers to undo")
 check(database["visited:CloudGiraffe"] and database["visited:CloudGiraffe"].DKR == true,
     "visit saved under the character's name")
 check(ringList.selected == edgeville.id, "selection survives the list refresh")
@@ -211,6 +240,16 @@ search.hooks.ONCONTENTCHANGED(search, "CONTENT_CHANGE", "")
 filterList:SetEntrySelected(2, true)
 filterList.hooks.ONSELECTIONCHANGED(filterList, 2, 1)
 check(#ringList.entries == 55, "not-visited filter hides Edgeville (got " .. #ringList.entries .. ")")
+
+-- Open the (fake) travel log: its rings become discovered automatically.
+require("src/sources/log_reader").SetInterfaceIds({ 999 })
+travelLogOpen = true
+for _ = 1, 3 do fire("ServerLogic", nil) end
+check(database["detected:CloudGiraffe"] and database["detected:CloudGiraffe"].AIQ == true
+    and database["detected:CloudGiraffe"].CKS == true, "rings in the travel log are detected and saved")
+check(database["detected:CloudGiraffe"].AIP == nil, "Zanaris hub text does not mark AIP")
+check(#ringList.entries == 53, "not-discovered filter now also hides AIQ and CKS (got "
+    .. #ringList.entries .. ")")
 
 print(failures == 0 and "mock game test passed" or (failures .. " check(s) failed"))
 if failures > 0 then

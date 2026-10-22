@@ -17,6 +17,7 @@ local Dates = require("src/dates")
 local Filter = require("src/filter")
 local Display = require("src/display")
 local Visited = require("src/visited")
+local LogReader = require("src/sources/log_reader")
 
 local passed, failed = 0, 0
 
@@ -137,9 +138,9 @@ test("Search by place name", function()
     eq(codesOf(Filter.Apply(Rings.LIST, "havenhythe", "all", {})), "BKS,DIQ,DLP")
 end)
 
-test("Not visited hides visited rings", function()
-    local all = #Filter.Apply(Rings.LIST, "", "notVisited", {})
-    local fewer = #Filter.Apply(Rings.LIST, "", "notVisited", { AIQ = true, DKR = true })
+test("Not discovered hides discovered rings", function()
+    local all = #Filter.Apply(Rings.LIST, "", "notDiscovered", {})
+    local fewer = #Filter.Apply(Rings.LIST, "", "notDiscovered", { AIQ = true, DKR = true })
     eq(all - fewer, 2)
 end)
 
@@ -163,7 +164,7 @@ end)
 
 test("List labels show setup, new and visited tags", function()
     eq(Display.ListLabel(Rings.Get("DIQ"), true, Filter.RECENT_SINCE),
-        "DIQ  Fenmoor, Havenhythe (east of Linbog Village)  [needs repair, new, visited]")
+        "DIQ  Fenmoor, Havenhythe (east of Linbog Village)  [needs repair, new, discovered]")
     eq(Display.ListLabel(Rings.Get("DKR"), false, Filter.RECENT_SINCE), "DKR  Edgeville")
 end)
 
@@ -172,11 +173,11 @@ test("Details include requirement, setup, date and visit state", function()
     eq(string.find(text, "85 Construction", 1, true) ~= nil, true, "requirement")
     eq(string.find(text, "Fairy Fixit", 1, true) ~= nil, true, "setup")
     eq(string.find(text, "July 13th, 2026", 1, true) ~= nil, true, "date")
-    eq(string.find(text, "Not visited yet", 1, true) ~= nil, true, "visit state")
+    eq(string.find(text, "Not discovered yet", 1, true) ~= nil, true, "visit state")
 end)
 
 test("Summary counts rings, visits and setup", function()
-    eq(Display.Summary(Rings.LIST, { AIQ = true }), "56 rings | 1 visited | 7 need work before first use")
+    eq(Display.Summary(Rings.LIST, { AIQ = true }), "56 rings | 1 discovered | 7 need work before first use")
 end)
 
 --------------------------------------------------------------------------------
@@ -200,7 +201,52 @@ test("Game-reported visits combine with manual marks", function()
     local set = Visited.AsSet()
     eq(set.DKR, true)
     eq(set.CKS, true)
-    eq(Visited.IsFromGame("CKS"), false)
+    eq(Visited.IsDetected("CKS"), false)
+end)
+
+--------------------------------------------------------------------------------
+-- Reading the game's fairy ring windows
+--------------------------------------------------------------------------------
+
+local function extract(text)
+    local found = LogReader.ExtractCodes(text, {})
+    local codes = {}
+    for code in pairs(found) do table.insert(codes, code) end
+    table.sort(codes)
+    return table.concat(codes, ",")
+end
+
+test("Codes are read in plain and spaced form", function()
+    eq(extract("AIQ"), "AIQ")
+    eq(extract("D K R"), "DKR")
+    eq(extract("<col=ffffff>C K S</col>"), "CKS")
+end)
+
+test("Place names are recognised without codes", function()
+    eq(extract("Asgarnia: Mudskipper Point"), "AIQ")
+    eq(extract("edgeville"), "DKR")
+end)
+
+test("Ordinary words and dead codes are not mistaken for rings", function()
+    eq(extract("DISCOVERED codes: 12"), "")
+    eq(extract("CJP"), "")       -- a dead code
+    eq(extract("BLAST"), "")
+end)
+
+test("The Zanaris hub name does not count as discovering AIP", function()
+    eq(extract("Zanaris"), "")
+    eq(extract("AIP"), "AIP")
+end)
+
+test("Detected rings are saved and survive a relog", function()
+    Visited.UseCharacter("Alice")
+    eq(Visited.AddDetected({ DKR = true, AIQ = true }), 2)
+    eq(Visited.AddDetected({ DKR = true }), 0)
+    Visited.UseCharacter("Bob")
+    eq(Visited.Is("DKR"), false)
+    Visited.UseCharacter("Alice")
+    eq(Visited.IsDetected("DKR"), true)
+    eq(Visited.DetectedCount(), 2)
 end)
 
 print(string.format("%d passed, %d failed", passed, failed))

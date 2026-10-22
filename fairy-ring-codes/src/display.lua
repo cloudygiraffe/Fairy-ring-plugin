@@ -5,6 +5,7 @@
 
 local Rings = require("src/rings")
 local Dates = require("src/dates")
+local Favourites = require("src/favourites")
 
 local Display = {}
 
@@ -23,7 +24,7 @@ local SETUP_TAGS = {
     bridges = "needs bridges repaired",
 }
 
--- One line in the ring list, e.g. "AIQ  Asgarnia: Mudskipper Point [visited]".
+-- One line in the ring list, e.g. "AIQ  Asgarnia: Mudskipper Point [discovered]".
 -- List entries are plain text, so tags are written in brackets.
 function Display.ListLabel(ring, isVisited, recentSince)
     local tags = {}
@@ -34,7 +35,7 @@ function Display.ListLabel(ring, isVisited, recentSince)
         table.insert(tags, "new")
     end
     if isVisited then
-        table.insert(tags, "visited")
+        table.insert(tags, "discovered")
     end
     local label = ring.code .. "  " .. ring.location
     if #tags > 0 then
@@ -49,8 +50,8 @@ function Display.SequenceLabel(sequence)
 end
 
 -- The details block for the selected ring.
---   visitState : "game" (the game says visited), "manual" (marked by hand),
---                or nil (not visited)
+--   visitState : "game" (seen in the game's own fairy ring windows or data),
+--                "manual" (marked by hand), or nil (not discovered)
 function Display.Details(ring, visitState)
     local lines = {}
     table.insert(lines, colour(ring.code, HIGHLIGHT_COLOUR) .. "  " .. ring.location)
@@ -69,12 +70,17 @@ function Display.Details(ring, visitState)
     if ring.added then
         table.insert(lines, "Added " .. Dates.Format(ring.added))
     end
+    for _, suggestion in ipairs(Favourites.For(ring.code)) do
+        local label = suggestion.list == "clues" and "clues" or "travel"
+        table.insert(lines, colour("Suggested favourite for " .. label .. " (#" .. suggestion.rank .. "): ",
+            HIGHLIGHT_COLOUR) .. suggestion.reason)
+    end
     if visitState == "game" then
-        table.insert(lines, "Visited")
+        table.insert(lines, "Discovered (seen in your travel log)")
     elseif visitState == "manual" then
-        table.insert(lines, "Visited (marked by you)")
+        table.insert(lines, "Discovered (marked by you)")
     else
-        table.insert(lines, colour("Not visited yet", MUTED_COLOUR))
+        table.insert(lines, colour("Not discovered yet", MUTED_COLOUR))
     end
     return table.concat(lines, "<br>")
 end
@@ -86,7 +92,7 @@ function Display.SequenceDetails(sequence)
         .. "<br>Needs: " .. sequence.requirement
 end
 
--- Summary line under the title, e.g. "56 rings | 12 visited | 6 need work first".
+-- Summary line under the title, e.g. "56 rings | 12 discovered | 7 need work before first use".
 function Display.Summary(rings, visitedSet)
     local visitedCount, setupCount = 0, 0
     for _, ring in ipairs(rings) do
@@ -97,7 +103,7 @@ function Display.Summary(rings, visitedSet)
             setupCount = setupCount + 1
         end
     end
-    return #rings .. " rings | " .. visitedCount .. " visited | "
+    return #rings .. " rings | " .. visitedCount .. " discovered | "
         .. setupCount .. " need work before first use"
 end
 
@@ -108,9 +114,14 @@ function Display.BaseRequirements()
 end
 
 -- Shown in the details area before anything is selected.
-function Display.Hint(matchCount)
+function Display.Hint(matchCount, modeKey)
     if matchCount == 0 then
         return colour("No rings match. Try a different search or filter.", MUTED_COLOUR)
+    end
+    if modeKey == "clues" or modeKey == "travel" then
+        return colour("Best first. To use them, set them as numbered favourites in the "
+            .. "fairy ring's travel log; then the number keys pick them.<br>"
+            .. "Select one to see why it is suggested.", MUTED_COLOUR)
     end
     return colour("Select a ring to see its requirements.", MUTED_COLOUR)
 end

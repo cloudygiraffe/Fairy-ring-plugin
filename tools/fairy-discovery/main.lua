@@ -11,6 +11,10 @@
 --      Zanaris or Last-destination), logs EVERY variable that changes in the
 --      next 30 seconds. Teleport to a ring you have never visited; the
 --      "visited" flag should be one of the few variables that change.
+--   3. Watches for any open game window whose text contains ring codes, and
+--      prints its interface ID plus a sample of its text. Open the fairy ring
+--      dial screen and the travel log: their IDs go into
+--      fairy-ring-codes/src/sources/log_reader.lua.
 
 local KEYWORDS = { "FAIRY", "ZANARIS", "TRAVEL_LOG", "TRAVELLOG", "DIAL", "FAIRYRING" }
 local RING_VERBS = { "configure", "zanaris", "last-destination", "last destination", "use" }
@@ -136,6 +140,101 @@ Event.VarTransmit.Subscribe("fairyDiscoveryVars", function(event)
     if matches[name] or capturing then
         say(matches[name] and "CHANGE (matched)" or "CHANGE (after ring use)", name,
             tostring(event.oldValue) .. " -> " .. tostring(event.newValue))
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 3: find the fairy ring windows
+--------------------------------------------------------------------------------
+
+local MAX_INTERFACE_ID = 3000      -- how many interface IDs to check
+local INTERFACE_CHECK_TICKS = 5    -- check every 5 server ticks (~3 s)
+local MAX_COMPONENTS = 3000
+local reportedInterfaces = {}      -- interfaceId -> true once printed
+
+-- Collects up to `limit` non-empty text strings from a component tree.
+local function collectText(component, out, budget, limit)
+    if budget.remaining <= 0 or #out >= limit then return end
+    budget.remaining = budget.remaining - 1
+    local ok, content = pcall(function() return component.content end)
+    if ok and type(content) == "string" and content ~= "" then
+        table.insert(out, content)
+    end
+    local function child(c)
+        collectText(c, out, budget, limit)
+        return budget.remaining <= 0 or #out >= limit
+    end
+    pcall(function() component:IterateStaticComponents(child) end)
+    pcall(function() component:IterateDynamicComponents(child) end)
+end
+
+-- Counts ring-code-looking tokens (e.g. "AIQ" or "A I Q") in a string.
+local function countCodes(text)
+    local count = 0
+    local upper = " " .. string.upper(string.gsub(text, "<[^>]*>", " ")) .. " "
+    for _ in string.gmatch(upper, "%f[%w][A-D]%s?[I-L]%s?[P-S]%f[%W]") do
+        count = count + 1
+    end
+    return count
+end
+
+local function inspectInterface(interfaceId, interface)
+    local texts, budget = {}, { remaining = MAX_COMPONENTS }
+    local function top(component)
+        collectText(component, texts, budget, 200)
+        return budget.remaining <= 0
+    end
+    local listed = pcall(function() interface:IterateStaticComponents(top) end)
+    if not listed then
+        for staticId = 0, 400 do
+            local ok, component = pcall(function()
+                return ui.Interfaces:GetComponent(interfaceId, staticId)
+            end)
+            if ok and component ~= nil then top(component) end
+        end
+    end
+    local codes = 0
+    for _, text in ipairs(texts) do codes = codes + countCodes(text) end
+    if codes >= 2 then
+        reportedInterfaces[interfaceId] = true
+        say(string.format("FAIRY WINDOW? interface=%d codes=%d listedChildren=%s texts=%d",
+            interfaceId, codes, tostring(listed), #texts))
+        for index = 1, math.min(#texts, 25) do
+            say("   text: " .. texts[index])
+        end
+    end
+end
+
+-- Also list any interface names in id.Interface that mention fairies, in
+-- case the game exposes them by name.
+pcall(function()
+    for name, value in pairs(id.Interface) do
+        if string.find(string.upper(tostring(name)), "FAIRY", 1, true) then
+            say("id.Interface name:", name, "=", tostring(value))
+        end
+    end
+end)
+
+local interfaceTicks = 0
+local lastInspected = {} -- interfaceId -> interfaceTicks when last inspected
+local RECHECK_TICKS = 50 -- re-read an open, non-fairy window every ~30 s at most
+Event.ServerLogic.Subscribe("fairyDiscoveryWindows", function()
+    interfaceTicks = interfaceTicks + 1
+    if interfaceTicks % INTERFACE_CHECK_TICKS ~= 0 then return end
+    for interfaceId = 0, MAX_INTERFACE_ID do
+        local recentlyChecked = lastInspected[interfaceId] ~= nil
+            and interfaceTicks - lastInspected[interfaceId] < RECHECK_TICKS
+        if not reportedInterfaces[interfaceId] and not recentlyChecked then
+            local ok, interface = pcall(function()
+                return ui.Interfaces:GetInterface(interfaceId)
+            end)
+            if ok and interface ~= nil then
+                lastInspected[interfaceId] = interfaceTicks
+                inspectInterface(interfaceId, interface)
+            else
+                lastInspected[interfaceId] = nil -- closed: inspect as soon as it reopens
+            end
+        end
     end
 end)
 

@@ -3,6 +3,7 @@
 -- Pure logic with no game calls, so it is fully unit tested.
 
 local Dates = require("src/dates")
+local Favourites = require("src/favourites")
 
 local Filter = {}
 
@@ -10,10 +11,12 @@ local Filter = {}
 -- dropdown reports; `label` is what the player sees.
 Filter.MODES = {
     { id = 1, key = "all",         label = "All rings" },
-    { id = 2, key = "notVisited",  label = "Not visited yet" },
-    { id = 3, key = "needsSetup",  label = "Need repairing or building" },
-    { id = 4, key = "recent",      label = "Added recently" },
-    { id = 5, key = "requirement", label = "Have a quest or skill requirement" },
+    { id = 2, key = "notDiscovered", label = "Not discovered yet" },
+    { id = 3, key = "clues",       label = "Suggested favourites: clues" },
+    { id = 4, key = "travel",      label = "Suggested favourites: travel" },
+    { id = 5, key = "needsSetup",  label = "Need repairing or building" },
+    { id = 6, key = "recent",      label = "Added recently" },
+    { id = 7, key = "requirement", label = "Have a quest or skill requirement" },
 }
 
 -- Rings added on or after this date count as "recent". Move it forward when
@@ -52,9 +55,9 @@ end
 
 -- True if the ring belongs in the chosen filter.
 --   modeKey : one of the `key` values in Filter.MODES
---   visited : set of visited codes, e.g. { AIQ = true }
+--   visited : set of discovered codes, e.g. { AIQ = true }
 function Filter.MatchesMode(ring, modeKey, visited)
-    if modeKey == "notVisited" then
+    if modeKey == "notDiscovered" then
         return not visited[ring.code]
     elseif modeKey == "needsSetup" then
         return ring.setup ~= nil
@@ -92,8 +95,23 @@ function Filter.ApplySequences(sequences, searchText, modeKey)
     return result
 end
 
--- Returns the rings to show, in data-file order.
+-- Returns the rings to show. Suggested-favourite filters keep the
+-- suggestion order (best first); every other filter uses data-file order.
 function Filter.Apply(rings, searchText, modeKey, visited)
+    local suggestions = Favourites.LISTS[modeKey]
+    if suggestions then
+        local byCode = {}
+        for _, ring in ipairs(rings) do byCode[ring.code] = ring end
+        local ordered = {}
+        for _, suggestion in ipairs(suggestions) do
+            local ring = byCode[suggestion.code]
+            if ring and Filter.MatchesSearch(ring, searchText) then
+                table.insert(ordered, ring)
+            end
+        end
+        return ordered
+    end
+
     local result = {}
     for _, ring in ipairs(rings) do
         if Filter.MatchesMode(ring, modeKey, visited) and Filter.MatchesSearch(ring, searchText) then

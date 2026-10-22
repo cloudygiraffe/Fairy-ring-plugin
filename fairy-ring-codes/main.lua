@@ -18,6 +18,7 @@ local Display = require("src/display")
 local Visited = require("src/visited")
 local Panel = require("src/panel")
 local GameSource = require("src/sources/game_source")
+local LogReader = require("src/sources/log_reader")
 
 --------------------------------------------------------------------------------
 -- What the panel is currently showing
@@ -76,25 +77,25 @@ local function refreshText(matchCount)
     }
     if ring then
         local visitState = nil
-        if Visited.IsFromGame(ring.code) then
+        if Visited.IsDetected(ring.code) then
             visitState = "game"
         elseif Visited.Is(ring.code) then
             visitState = "manual"
         end
         view.details = Display.Details(ring, visitState)
-        -- Rings the game itself reports as visited cannot be unmarked by hand.
+        -- Rings the game itself shows as discovered cannot be unmarked by hand.
         if visitState == "game" then
             view.buttonLabel = nil
         elseif visitState == "manual" then
-            view.buttonLabel = "Mark as not visited"
+            view.buttonLabel = "Mark as not discovered"
         else
-            view.buttonLabel = "Mark as visited"
+            view.buttonLabel = "Mark as discovered"
         end
     elseif sequence then
         view.details = Display.SequenceDetails(sequence)
         view.buttonLabel = nil
     else
-        view.details = Display.Hint(matchCount or 1)
+        view.details = Display.Hint(matchCount or 1, Filter.ModeByID(modeId).key)
         view.buttonLabel = nil
     end
     panel:SetText(view)
@@ -124,7 +125,7 @@ panel = Panel.new({
     end,
     onToggleVisited = function()
         local ring = selectedItem()
-        if ring == nil or Visited.IsFromGame(ring.code) then
+        if ring == nil or Visited.IsDetected(ring.code) then
             return
         end
         Visited.SetManual(ring.code, not Visited.Is(ring.code))
@@ -151,9 +152,31 @@ local function refreshFromGame()
     end
 end
 
--- Every server tick (0.6 s): load the right character's marks after login or
--- a character switch. Cheap when nothing has changed.
+-- How often to read the game's fairy ring windows while one is open, in
+-- server ticks (0.6 s each). Re-reading lets scrolling reveal more rows.
+local READ_EVERY_SERVER_TICKS = 3
+local serverTicks = 0
+
+-- Reads the game's travel log / dial screen if one is open, and records any
+-- rings shown there as discovered.
+local function readGameWindows()
+    if not LogReader.IsConfigured() or loadedCharacter == nil then
+        return
+    end
+    local seen = LogReader.Read()
+    if seen and Visited.AddDetected(seen) > 0 then
+        refreshAll()
+    end
+end
+
+-- Every server tick (0.6 s): load the right character's data after login or
+-- a character switch, and read open fairy ring windows. Cheap when nothing
+-- has changed.
 Event.ServerLogic.Subscribe("fairyCharacter", function()
+    serverTicks = serverTicks + 1
+    if serverTicks % READ_EVERY_SERVER_TICKS == 0 then
+        readGameWindows()
+    end
     local ok, name = pcall(function()
         if Player.IsAvailable() then
             return Player.GetEntity().displayName

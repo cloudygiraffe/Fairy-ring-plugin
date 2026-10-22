@@ -6,13 +6,13 @@ developer.runescape.com.
 ## Data flow
 
 ```
-  rings.lua ---> filter.lua ---> display.lua ---> panel.lua
-  (static)       (search,         (wording)        (ribbon window)
-                  filters)
-                     ^
-  visited.lua -------+   <--- game_source.lua (once the variable is known)
-  (PersistentDB,              <--- "Mark as visited" button
-   per character)
+  rings.lua ------> filter.lua ---> display.lua ---> panel.lua
+  favourites.lua --/ (search,        (wording)        (ribbon window)
+                      filters)
+                         ^
+  visited.lua -----------+  <--- log_reader.lua  (game's travel log, while open)
+  (PersistentDB,            <--- game_source.lua (a variable, if one exists)
+   per character)           <--- "Mark as discovered" button
 ```
 
 - **rings.lua** is plain data. It is the only file that changes when Jagex
@@ -28,10 +28,18 @@ developer.runescape.com.
   rings (only tables on the article), and live lookups would need the
   `httpAccess` permission and review. A static list is instant, needs no
   permissions, and is easy to check in a pull request.
-- **Per-character visited marks.** PersistentDB is shared by every character
-  on the computer, so marks are stored under `visited:<display name>`.
-- **Game-reported visits win.** If the game says a ring is visited, the panel
+- **Discovery by reading the travel log.** The game only lists rings you've
+  visited, so any code or place name in its fairy ring windows counts as
+  discovered. Detected rings are saved (`detected:<name>`) because they never
+  become undiscovered. Manual marks are kept separately (`visited:<name>`).
+- **Matching is strict.** Codes must stand alone (so "DISCOVERED" doesn't
+  match DIS) and must be real ring codes. The Zanaris place name is ignored,
+  because the screens mention Zanaris as the hub.
+- **Detected rings win.** If the game shows a ring as discovered, the panel
   doesn't offer to unmark it.
+- **Favourites are suggestions only.** Setting the game's favourites would be
+  an action sent to the server, so the plugin lists them and explains how to
+  set them instead.
 - **No dialling, no clicking.** The plugin never interacts with the fairy ring
   interface. That keeps it firmly inside the guidelines and away from
   "modifying interfaces" review.
@@ -40,20 +48,22 @@ developer.runescape.com.
 
 ## Open questions (answer on the beta world)
 
-1. **Is there a variable for visited rings?** → `tools/fairy-discovery`.
-   Possibly one bit per ring across a few varbits.
-2. **List behaviour.** Does `ui.List:Clear()` fire `ONSELECTIONCHANGED`? Does
+1. **Window IDs** of the dial screen and travel log → `tools/fairy-discovery`
+   prints `FAIRY WINDOW?` lines. Also: can an interface list its components
+   (`IterateStaticComponents`), or is the per-ID fallback needed? Does the log
+   build all rows up front, or only visible ones?
+2. **Is there a variable for visited rings?** Same tool. Possibly one bit per
+   ring across a few varbits.
+3. **List behaviour.** Does `ui.List:Clear()` fire `ONSELECTIONCHANGED`? Does
    `DROPDOWN_DEFAULT` with `dropdownMaxVisibleEntries = 0` scroll as expected?
-3. **Panel size.** The ribbon content layer's size isn't documented. The panel
-   is about 560 px tall.
-4. **Markup.** Do `<col=...>` and `<br>` work in `ui.Text`?
-5. **Player name.** `Player.GetEntity().displayName` is used as the storage
+4. **Panel size.** The ribbon content layer's size isn't documented. The panel
+   is about 600 px tall.
+5. **Markup.** Do `<col=...>` and `<br>` work in `ui.Text`?
+6. **Player name.** `Player.GetEntity().displayName` is used as the storage
    key; confirm it is available shortly after login.
 
 ## Ideas for later
 
-- Read the in-game travel log while it's open, as a second way to learn
-  visited rings (plugins can read built-in interface text).
 - Show requirements as met/unmet using quest and skill data
   (`QuestType`, `Player.GetLevelUncapped`).
 - A world-map style view instead of a list.
