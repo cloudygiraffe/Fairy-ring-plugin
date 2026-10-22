@@ -1,20 +1,28 @@
 -- Fairy Discovery (developer tool, never meant for the Plugin Hub)
 --
--- Run this on the plugin beta world to find the game variables that record
--- which fairy rings you have visited. Everything is printed to the client
--- console (ALT + the key under Esc). Copy the console output into an issue.
+-- Run this on the plugin beta world to inspect what the game exposes about
+-- fairy rings. Everything is printed to the client console (ALT + the key
+-- under Esc). Copy the console output into an issue.
+--
+-- Its original job, finding the travel-log variables, is done: they are the
+-- FAIRYRINGS_LOG_* varbits now read by fairy-ring-codes/src/sources/
+-- game_source.lua. The client's own `pan VarPlayer` console command lists
+-- every variable name, so the slow name scan (1) is off by default.
 --
 -- What it does:
---   1. Lists every VarPlayer / VarClient whose name looks fairy-ring related,
---      with its current value.
+--   1. (Off unless SCAN_NAMES = true.) Lists every VarPlayer / VarClient whose
+--      name looks fairy-ring related, with its current value.
 --   2. When you use a fairy ring (right-click options such as Configure,
 --      Zanaris or Last-destination), logs EVERY variable that changes in the
 --      next 30 seconds. Teleport to a ring you have never visited; the
 --      "visited" flag should be one of the few variables that change.
 --   3. Watches for any open game window whose text contains ring codes, and
---      prints its interface ID plus a sample of its text. Open the fairy ring
---      dial screen and the travel log: their IDs go into
---      fairy-ring-codes/src/sources/log_reader.lua.
+--      prints its interface ID plus a sample of its text ("FAIRY WINDOW?").
+--      Open the fairy ring dial screen and the travel log: their IDs go into
+--      fairy-ring-codes/src/sources/log_reader.lua (the backup source).
+--   4. A few seconds after loading, prints "TRAVEL LOG": every code the game
+--      has marked, plus the Hideout / Ork's Rift flags and the repair flags,
+--      to compare with the travel log's "Discovered: x/y".
 
 local KEYWORDS = { "FAIRY", "ZANARIS", "TRAVEL_LOG", "TRAVELLOG", "DIAL", "FAIRYRING" }
 local RING_VERBS = { "configure", "zanaris", "last-destination", "last destination", "use" }

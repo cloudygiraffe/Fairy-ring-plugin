@@ -1,7 +1,13 @@
--- Unit tests for the parts of the plugin that do not need the game client.
+-- Unit tests for the parts of the plugin that do not need the game client:
+-- ring data integrity, search and filters, favourites, display text, visited
+-- tracking, text extraction from windows and the travel-log variable maths.
 --
--- Run from the repository root with any Lua 5.1+ interpreter:
---     lua tests/run_tests.lua
+-- Run from the repository root (CI uses Lua 5.4):
+--     lua5.4 tests/run_tests.lua
+--
+-- A tiny framework: test(name, fn) runs fn in a pcall, eq(actual, expected,
+-- label) fails with a readable message. Visited state is reset before each
+-- test. Exits with status 1 if anything fails.
 
 package.path = "fairy-ring-codes/?.lua;" .. package.path
 

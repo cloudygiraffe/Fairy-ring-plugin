@@ -23,6 +23,7 @@ Filter.MODES = {
 -- the data file gets a new batch of rings.
 Filter.RECENT_SINCE = { 2026, 1, 1 }
 
+-- Returns the Filter.MODES entry with this id, or "All rings" if unknown.
 function Filter.ModeByID(modeId)
     for _, mode in ipairs(Filter.MODES) do
         if mode.id == modeId then

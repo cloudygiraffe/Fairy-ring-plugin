@@ -2,12 +2,15 @@
 -- Keeps track of which rings the player has discovered, per character.
 --
 -- Three kinds of information are combined:
---   * detected : rings seen in the game's own travel log or dial screen
---                (sources/log_reader.lua). Saved, since the game only shows
---                rings you have visited, so a ring seen once stays discovered.
---   * fromGame : rings a game variable reports as visited, once the discovery
---                tool has found that variable (sources/game_source.lua)
---   * manual   : rings the player marked by hand in the panel
+--   * fromGame : rings the game's travel-log variables report as visited
+--                (sources/game_source.lua). The primary source. Not saved:
+--                it is re-read from the game after every login.
+--   * detected : rings seen in the text of the game's travel log or dial
+--                screen while open (sources/log_reader.lua, a backup that
+--                needs the window IDs). Saved per character.
+--   * manual   : rings the player marked by hand in the panel. Saved per
+--                character.
+-- A ring counts as discovered if any source says so.
 --
 -- PersistentDB is shared by every character on this computer, so each
 -- character's data is saved under keys that include its name.
@@ -42,7 +45,8 @@ local function save(key, set)
 end
 
 -- Sets which character's data is in use and loads it. `name` may be nil
--- before login, in which case nothing is saved.
+-- before login, in which case nothing is saved. Clears the game-reported set
+-- (main.lua re-reads it for the new character).
 function Visited.UseCharacter(name)
     fromGame = {}
     if type(name) ~= "string" or name == "" then

@@ -26,6 +26,11 @@ local SETUP_TAGS = {
 
 -- One line in the ring list, e.g. "AIQ  Asgarnia: Mudskipper Point [discovered]".
 -- List entries are plain text, so tags are written in brackets.
+--   ring        : an entry from Rings.LIST
+--   isVisited   : true if any source says it was discovered
+--   recentSince : { y, m, d }; rings added on or after it get "[new]"
+-- The label always starts with the code, which keeps labels unique (panel.lua
+-- relies on that to map rows back to rings).
 function Display.ListLabel(ring, isVisited, recentSince)
     local tags = {}
     -- A ring you've already used has obviously been repaired or built.

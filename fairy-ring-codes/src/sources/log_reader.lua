@@ -1,6 +1,9 @@
 -- sources/log_reader.lua
--- Learns which rings you have discovered by reading the game's own fairy ring
--- windows while they are open.
+-- BACKUP source: learns which rings you have discovered by reading the text
+-- of the game's own fairy ring windows while they are open. The primary
+-- source is sources/game_source.lua (the travel-log variables), which needs
+-- no open window; this reader only matters if those variables ever stop
+-- being readable.
 --
 -- The game's travel log only lists rings you have already visited, and the
 -- dial screen only names a destination once you have been there. So any ring
@@ -17,9 +20,10 @@
 -- If the game only builds the rows you can see, scrolling through the log
 -- lets the plugin read the rest, because it re-reads while the window is open.
 --
--- STATUS: the window IDs are not documented. tools/fairy-discovery finds them
--- on the beta world; add them to KNOWN_INTERFACE_IDS below. ExtractCodes()
--- works already and is unit tested.
+-- STATUS: inactive until KNOWN_INTERFACE_IDS is filled in. The window IDs are
+-- not documented; tools/fairy-discovery prints them ("FAIRY WINDOW?") on the
+-- beta world. ExtractCodes() works already and is unit tested, and the mock
+-- game test exercises Read() against a fake travel log.
 
 local Rings = require("src/rings")
 
@@ -49,6 +53,8 @@ end
 
 -- Finds every ring the text mentions, by code or by place name, and adds it
 -- to `found` (a set of codes). Pure function: unit tested without the game.
+--   text  : any string (colour tags are ignored); non-strings are skipped
+--   found : set to add to, e.g. {}; returned for convenience
 function LogReader.ExtractCodes(text, found)
     if type(text) ~= "string" or text == "" then
         return found
@@ -86,6 +92,8 @@ local function readText(component)
 end
 
 -- Visits a component and all its children, calling visit(component) on each.
+-- `budget.remaining` caps the total number of components visited, so a huge
+-- or cyclic tree can't stall the game.
 local function walk(component, visit, budget)
     if budget.remaining <= 0 then
         return

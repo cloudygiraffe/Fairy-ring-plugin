@@ -1,6 +1,11 @@
 -- sources/game_source.lua
--- Reads which fairy rings are in your travel log, straight from the game's
--- variables. No permissions and no open windows needed.
+-- PRIMARY source: reads which fairy rings are in your travel log, straight
+-- from the game's variables. No permissions and no open windows needed.
+--
+-- None of this is in Jagex's documentation. The names and IDs below come from
+-- the client's own variable list, and the behaviour was observed on the beta
+-- world on October 22nd, 2026: the set read here matched the codes in the
+-- in-game travel log.
 --
 -- The client's own variable list (console command `pan VarPlayer`, October
 -- 22nd, 2026 beta client) has one bit per code:
@@ -13,9 +18,14 @@
 --   ...
 --   FAIRYRINGS_LOG_DLS  varbit -12143  (VarPlayer 2483, bit 31)
 --
--- i.e. codes in dial order (A-D, then I-L, then P-S), 64 in all. The varbits
--- are read first; if the client won't hand them out, the two whole VarPlayers
--- are read and split into bits instead.
+-- i.e. codes in dial order (A-D, then I-L, then P-S), 64 in all, including
+-- the 8 codes that lead nowhere (their bits simply stay 0). The varbits are
+-- read first; if the client won't hand them out, the two whole VarPlayers are
+-- read and split into bits instead.
+--
+-- Not read yet (see README, Roadmap): FAIRYRINGS_LOG_HIDEOUT (varbit -12077)
+-- and FT3_FAIRYRINGS_LOG_RIFT (varbit -9964), the Fairy Queen's Hideout and
+-- Ork's Rift entries the game includes in its "Discovered: x/58" total.
 
 local GameSource = {}
 
@@ -104,7 +114,7 @@ local function readFromVarps()
     return visited
 end
 
--- Kept for main.lua: the source is always configured now.
+-- Kept so main.lua can treat every source alike: this one needs no setup.
 function GameSource.IsConfigured()
     return true
 end
@@ -115,7 +125,10 @@ function GameSource.ReadVisited()
     return readFromVarbits() or readFromVarps()
 end
 
--- True if a VarTransmit event concerns the travel log.
+-- True if a VarTransmit event concerns the travel log. Matches both the
+-- per-code varbit names (FAIRYRINGS_LOG_AIQ) and the VarPlayers that hold
+-- them (FAIRYRINGS_LOG_1 / _2), since which one the event names isn't
+-- documented. Never throws.
 function GameSource.IsOurVariable(event)
     local ok, name = pcall(function() return event.var.configName end)
     if not ok or type(name) ~= "string" then

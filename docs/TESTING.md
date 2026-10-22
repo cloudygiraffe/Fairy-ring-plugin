@@ -1,79 +1,96 @@
 # Testing on the plugin beta world
 
 Plugins only run on the beta world until Jagex approves them. Your beta
-character is a copy of your live one ("import save" in the lobby, once an
-hour), so nothing you do there affects your real account.
+character is a copy of your live one (press **import save** in the lobby, at
+most once an hour), so nothing you do there affects your real account.
+
+Before testing in game, run the automated tests from the repository root.
+See the README's [Development](../README.md#development) section.
 
 ## 1. Set up
 
-1. Join the beta using the link on
+1. Join the beta through
    [developer.runescape.com → Accessing the API](https://developer.runescape.com/rs/tutorial/1helloworld.html),
    then press **import save** in the lobby.
-2. Find the beta client folder. On Windows it is usually
-   `C:\ProgramData\Jagex\RuneScape-BETA`.
+2. Open the beta client folder, on Windows usually
+   `C:\ProgramData\Jagex\RuneScape-BETA`. It's hidden, so paste the path into
+   the address bar.
 3. Create a `dev_plugins` folder inside it if there isn't one.
-4. Copy these folders into `dev_plugins`:
+4. Copy these folders into `dev_plugins` (the folders themselves):
    - `fairy-ring-codes`
-   - `tools/fairy-discovery` (copy the `fairy-discovery` folder itself)
+   - `tools/fairy-discovery` (optional, for the `TRAVEL LOG` readout)
 5. Open the console with **Alt + the key under Esc**. Run `prf`, then `plist`.
+   Both plugins should be listed with no `[ERROR]` lines.
 
 Console commands: `pon <name>`, `poff <name>`, `prl <name>` (reload), `plist`.
+After `prl`, close and reopen the plugin's panel to get the new version.
 
-## 2. Find the fairy ring windows and the "visited" variable (about 15 minutes)
+## 2. Compare with the in-game travel log (about 5 minutes)
 
-1. Run `pon fairy-discovery` and wait for `Scan complete`. Copy every `MATCH` line.
-2. Open a fairy ring's **dial screen**, then its **travel log**. Within a few
-   seconds the console should print `FAIRY WINDOW? interface=...` with sample
-   text. Copy those lines; the interface IDs go into `log_reader.lua`. Scroll
-   the log and note whether more text appears.
-3. Teleport to a ring you have **never visited** on this character. Right-clicking the ring and choosing **Configure** starts a
-   30-second capture.
-4. Copy every `CHANGE` line printed after that. A variable that changes when
-   you reach a new ring (and not on a repeat visit) is the one we want.
-5. Repeat with a second never-visited ring to confirm the pattern.
-6. Run `poff fairy-discovery` and paste the output into a GitHub issue.
+1. Run `pon fairy-discovery`. After a few seconds it prints:
+   - `TRAVEL LOG: <n> codes marked: …`, every code the game has marked as
+     discovered.
+   - `TRAVEL LOG extras: HIDEOUT=… RIFT=… …`, the multi-code destinations and
+     the repair flags.
+2. Open a fairy ring's travel log in game and note **Discovered: x/y**.
+3. Check that x = the marked codes + HIDEOUT + RIFT. If it doesn't add up,
+   find the entry that's in the log but not in the readout, and report it.
+4. Optional, for the backup window reader: open the dial screen and the
+   travel log. The console prints `FAIRY WINDOW? interface=…` with sample
+   text. Those interface IDs go into `log_reader.lua`.
+5. Run `poff fairy-discovery`.
 
 ## 3. Test the plugin
 
-Run `pon fairy-ring-codes`.
+Run `pon fairy-ring-codes`, then open **Fairy Rings** from the Plugins
+ribbon.
 
 ### Panel
 - [ ] The plugin's icon appears in the Plugins ribbon window and the panel opens.
-- [ ] The summary reads "56 rings | 0 discovered | 7 need work before first use".
-- [ ] The list scrolls and shows all rings plus Kethsi, the Fairy Queen's
+- [ ] The summary reads `56 rings | <n> discovered | <m> need work before first use`.
+- [ ] The list scrolls and shows all rings, plus Kethsi, the Fairy Queen's
       Hideout and Ork's Rift at the bottom.
 - [ ] The filter dropdown opens over the list, not underneath it.
-- [ ] Everything fits. Note anything cut off, and the panel's size.
-- [ ] `<col=...>` colours and `<br>` line breaks render (not shown as text).
+- [ ] Everything fits. Note anything cut off, and your interface scale.
+- [ ] `<col=…>` colours and `<br>` line breaks render as formatting, not as text.
+
+### Automatic discovery
+- [ ] Within a few seconds of logging in, without opening anything, the
+      "discovered" count matches the `TRAVEL LOG` readout (the number of
+      codes marked).
+- [ ] Spot-check a few: rings in your travel log are tagged `[discovered]`,
+      rings missing from it aren't.
+- [ ] **Not discovered yet** shows only rings missing from your log. Switch
+      filters back and forth a few times; no stale rows should remain.
+- [ ] Rings you've used no longer show `[needs repair]` or `[needs building]`.
+- [ ] Teleport to a ring you've never visited. Within a few seconds it becomes
+      `[discovered]` and the count goes up.
 
 ### Search and filters
-- [ ] `dk` shows DKP, DKQ, DKR, DKS. `d k r` shows DKR. `havenhythe` shows three rings.
-- [ ] "Need repairing or building" shows 7 rings.
-- [ ] "Added recently" shows the 2026 rings (BKS, DIQ, DLP, AKP).
-- [ ] Closing and reopening the panel keeps the search and filter.
-
-### Automatic discovery (travel-log variables)
-- [ ] Within a few seconds of logging in, without opening anything, the
-      summary's "discovered" count matches the number of rings in your travel log.
-- [ ] Spot-check a few: rings in your log are tagged `[discovered]`, rings
-      missing from it aren't.
-- [ ] "Not discovered yet" shows only rings missing from your log.
-- [ ] Rings you've used no longer show `[needs repair]` / `[needs building]`.
-- [ ] Teleport to a ring you've never visited: it becomes `[discovered]`
-      within a few seconds.
+- [ ] `dk` shows DKP, DKQ, DKR and DKS. `d k r` shows DKR. `havenhythe` shows
+      three rings.
+- [ ] **Need repairing or building** shows 7 rings.
+- [ ] **Added recently** shows the 2026 rings (BKS, DIQ, DLP, AKP).
+- [ ] Closing and reopening the panel keeps the search and the filter.
 
 ### Suggested favourites
 - [ ] Both favourites filters list rings best first, and the details say why.
+- [ ] Searching inside a favourites filter also matches the reason, for
+      example `karamja`.
 
 ### Manual marks
-- [ ] Selecting a ring shows its details and a "Mark as discovered" button
-      (hidden for rings the game already shows as discovered).
+- [ ] Selecting an undiscovered ring shows its details and a
+      **Mark as discovered** button. The button is hidden for rings the game
+      reports as discovered.
 - [ ] Marking a ring updates its `[discovered]` tag and the summary.
 - [ ] Marks survive `prl fairy-ring-codes` and a relog.
 - [ ] A second character on the same computer has its own marks.
 
 ### Data spot checks
-- [ ] Pick three rings you know and confirm codes and places match the game.
-- [ ] Check one "needs repair" ring in game, if you haven't repaired it yet.
+- [ ] Pick three rings you know and confirm that the codes and places match
+      the game.
+- [ ] If you haven't repaired one of the "needs repair" rings yet, check its
+      instructions in game.
 
-Report anything odd as a GitHub issue with the console output and, ideally, a screenshot.
+Report anything odd as a GitHub issue. Include the console output and,
+ideally, a screenshot.

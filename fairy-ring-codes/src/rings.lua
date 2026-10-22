@@ -25,6 +25,7 @@
 
 local Rings = {}
 
+-- Date the data was last checked against the Wiki (ISO format, for sorting).
 Rings.DATA_VERSION = "2026-10-22"
 
 -- Requirements that apply to every fairy ring.
@@ -142,7 +143,10 @@ Rings.LIST = {
     { code = "DIR", location = "Gorak Plane", area = "Islands and realms" },
 }
 
--- Destinations reached by dialling several codes in a row.
+-- Destinations reached by dialling several codes in a row. They are listed
+-- under "All rings" only. The game also counts the Fairy Queen's Hideout and
+-- Ork's Rift in its travel log total (58 = 56 rings + these two); reading
+-- their flags is on the roadmap (see README).
 Rings.SEQUENCES = {
     { codes = { "DIR", "AKS" }, location = "Kethsi",
       requirement = "Hidden; used during Ritual of the Mahjarrat" },
@@ -155,7 +159,8 @@ Rings.SEQUENCES = {
 -- Codes that lead nowhere on their own (DJQ is only part of a sequence).
 Rings.DEAD_CODES = { "AJP", "AKR", "BLS", "CIR", "CJP", "CJQ", "CLQ", "DJQ" }
 
--- Index by code for quick lookup.
+-- Index by code for quick lookup. Also stamps each ring with `index`, its
+-- position in Rings.LIST, which main.lua uses as the ring's list entry ID.
 local byCode = {}
 for index, ring in ipairs(Rings.LIST) do
     ring.index = index

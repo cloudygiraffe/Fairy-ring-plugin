@@ -7,10 +7,20 @@
 --
 --   rings.lua (data) --> filter.lua (search + filter) --> display.lua (text)
 --                                                              |
---   visited.lua (per-character marks) <--- game_source.lua     v
---                                                         panel.lua
+--   sources/game_source.lua (travel-log variables, primary)    v
+--   sources/log_reader.lua  (open windows, backup)  --> visited.lua --> panel.lua
+--                            manual marks from the panel ---^
 --
--- This file only wires events and the panel to those modules.
+-- This file owns the panel's state (search text, filter, selection, which
+-- character is loaded) and wires game events to the modules above. It does
+-- no game logic of its own.
+--
+-- Events used:
+--   ContentLayerReady  the plugin window was opened: build the panel
+--   ServerLogic        every 0.6 s: detect login / character switch, re-read
+--                      the travel-log variables every 10 ticks and any open
+--                      fairy ring window every 3 ticks
+--   VarTransmit        a FAIRYRINGS_LOG_* variable changed: re-read at once
 
 local Rings = require("src/rings")
 local Filter = require("src/filter")
@@ -31,7 +41,8 @@ local loadedCharacter = nil
 
 local panel -- created below
 
--- Looks up what a list entry ID refers to.
+-- Looks up what the selected list entry refers to. Returns (ring, nil) for a
+-- single ring, (nil, sequence) for a multi-code destination, or (nil, nil).
 local function selectedItem()
     if selectedId == nil then
         return nil, nil

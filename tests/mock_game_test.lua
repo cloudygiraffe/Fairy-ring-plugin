@@ -1,11 +1,20 @@
 -- End-to-end test of main.lua against a fake version of the game's plugin API.
 --
--- Run from the repository root:
---     lua tests/mock_game_test.lua
+-- Run from the repository root (CI uses Lua 5.4):
+--     lua5.4 tests/mock_game_test.lua
 --
 -- The fakes only implement what the plugin uses, with the names documented at
 -- developer.runescape.com. Reading an unknown API member, or setting an
--- undocumented component property, raises an error.
+-- undocumented component property, raises an error, so the test also guards
+-- against using APIs that don't exist.
+--
+-- Where the real beta client behaved differently from the docs, the fakes copy
+-- the real behaviour (observed October 22nd, 2026): List:Clear() leaves old
+-- rows behind, and duplicate entry IDs are rejected.
+--
+-- Scenario: log in, open the panel, search, select and mark a ring, filter to
+-- "Not discovered yet", open a fake travel log window, then let the game's
+-- travel-log variables arrive.
 
 package.path = "fairy-ring-codes/?.lua;" .. package.path
 

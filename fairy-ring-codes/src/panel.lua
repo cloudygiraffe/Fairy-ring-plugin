@@ -5,6 +5,11 @@
 -- (the ContentLayerReady event), so Build() recreates the components each
 -- time and Refresh() fills them in.
 --
+-- Panel holds no game state of its own: main.lua decides what to show and
+-- calls SetListEntries / SetText; the panel reports clicks and typing back
+-- through the callbacks given to Panel.new. Every write to a component is in
+-- a pcall so a client change can't break the whole plugin.
+--
 -- Layout, top to bottom:
 --   title and summary ("56 rings | 12 discovered | 7 need work before first use")
 --   search box
@@ -30,11 +35,12 @@ local DETAIL_ROWS = 8
 -- ring IDs (which are their position in Rings.LIST).
 Panel.SEQUENCE_ID_OFFSET = 1000
 
--- callbacks:
---   onSearchChanged(text)
---   onFilterChanged(modeId)
---   onSelected(entryId)
---   onToggleVisited()
+-- Creates the panel object (no components yet; see Build).
+--   callbacks.onSearchChanged(text)  the search box changed
+--   callbacks.onFilterChanged(modeId) a Filter.MODES id was picked
+--   callbacks.onSelected(entryId)    a list row was picked; entryId is the
+--                                    ID main.lua gave the entry, not the row's
+--   callbacks.onToggleVisited()      the Mark as (not) discovered button
 function Panel.new(callbacks)
     local self = setmetatable({}, Panel)
     self.callbacks = callbacks
@@ -173,9 +179,15 @@ end
 -- Replaces the list contents. `entries` is a list of { id = n, label = "..." }.
 -- The selected entry is kept if it is still in the list.
 --
--- Uses SetEntries, which clears and refills the list in one call: on the
--- beta client, Clear() followed by Add() left old rows behind. SetEntries
--- gives the rows its own IDs, so they are mapped back to ours by label.
+-- Uses SetEntries, which clears and refills the list in one call. Observed on
+-- the beta world, October 22nd, 2026: Clear() followed by Add() left old rows
+-- behind, so "Not discovered yet" still showed discovered rings. SetEntries
+-- (array form) gives the rows auto-generated IDs, so they are mapped back to
+-- ours by label; labels are unique because each starts with its code(s).
+-- tests/mock_game_test.lua reproduces the Clear() behaviour.
+--
+-- If SetEntries isn't available, or its rows can't be read back, it falls
+-- back to Clear() + Add() with our own IDs.
 function Panel:SetListEntries(entries, keepSelectedId)
     if not self:IsVisible() then
         return
@@ -222,7 +234,8 @@ function Panel:SetListEntries(entries, keepSelectedId)
     end
 end
 
--- Turns a row ID from the ring list back into the ID main.lua gave it.
+-- Turns a row ID from the ring list back into the ID main.lua gave it, or nil
+-- if the row isn't known. Without a mapping (fallback path) they're the same.
 function Panel:OurId(rowId)
     if self.ourIdByRowId then
         return self.ourIdByRowId[rowId]
