@@ -163,8 +163,11 @@ end)
 --------------------------------------------------------------------------------
 
 test("List labels show setup, new and visited tags", function()
+    eq(Display.ListLabel(Rings.Get("DIQ"), false, Filter.RECENT_SINCE),
+        "DIQ  Fenmoor, Havenhythe (east of Linbog Village)  [needs repair, new]")
+    -- Once you've used a ring it has obviously been repaired.
     eq(Display.ListLabel(Rings.Get("DIQ"), true, Filter.RECENT_SINCE),
-        "DIQ  Fenmoor, Havenhythe (east of Linbog Village)  [needs repair, new, discovered]")
+        "DIQ  Fenmoor, Havenhythe (east of Linbog Village)  [new, discovered]")
     eq(Display.ListLabel(Rings.Get("DKR"), false, Filter.RECENT_SINCE), "DKR  Edgeville")
 end)
 
@@ -178,6 +181,39 @@ end)
 
 test("Summary counts rings, visits and setup", function()
     eq(Display.Summary(Rings.LIST, { AIQ = true }), "56 rings | 1 discovered | 7 need work before first use")
+    eq(Display.Summary(Rings.LIST, { AIQ = true, DIQ = true }), "56 rings | 2 discovered | 6 need work before first use")
+end)
+
+--------------------------------------------------------------------------------
+-- Travel log variables
+--------------------------------------------------------------------------------
+
+local GameSource = require("src/sources/game_source")
+
+test("Travel-log varbits follow dial order: AIP -12080 ... DLS -12143", function()
+    eq(#GameSource.CODES, 64)
+    eq(GameSource.VarbitFor("AIP"), -12080)
+    eq(GameSource.VarbitFor("AIQ"), -12081)
+    eq(GameSource.VarbitFor("BIP"), -12096)
+    eq(GameSource.VarbitFor("BLS"), -12111)
+    eq(GameSource.VarbitFor("CIP"), -12112)
+    eq(GameSource.VarbitFor("DLS"), -12143)
+    eq(GameSource.VarbitFor("ZZZ"), nil)
+end)
+
+test("Every ring in the list has a travel-log bit", function()
+    for _, ring in ipairs(Rings.LIST) do
+        assert(GameSource.VarbitFor(ring.code), ring.code .. " has no travel-log varbit")
+    end
+end)
+
+test("Splitting a 32-bit value into bits, including negative values", function()
+    local bits = GameSource.Bits(5)
+    eq(bits[1], true); eq(bits[2], false); eq(bits[3], true); eq(bits[4], false)
+    local all = GameSource.Bits(-1)
+    for bit = 1, 32 do eq(all[bit], true, "bit " .. bit) end
+    local top = GameSource.Bits(-2147483648)
+    eq(top[32], true); eq(top[31], false); eq(top[1], false)
 end)
 
 --------------------------------------------------------------------------------

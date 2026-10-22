@@ -174,7 +174,17 @@ PersistentDB = strict("PersistentDB", {
     SetStructuredData = function(_, key, value) database[key] = value return true end,
 })
 
-var = strict("var", {})
+-- Travel-log varbits. Unreadable until gameVarsReady is set, like before login.
+local gameVarsReady = false
+local gameVarbits = { [-12101] = 1, [-12142] = 1 } -- BJQ and DLR
+var = strict("var", {
+    VarPlayer = strict("var.VarPlayer", {
+        FromID = function(variableId)
+            if not gameVarsReady then error("not available yet") end
+            return { value = gameVarbits[variableId] or 0 }
+        end,
+    }),
+})
 
 --------------------------------------------------------------------------------
 -- Run the plugin
@@ -250,6 +260,23 @@ check(database["detected:CloudGiraffe"] and database["detected:CloudGiraffe"].AI
 check(database["detected:CloudGiraffe"].AIP == nil, "Zanaris hub text does not mark AIP")
 check(#ringList.entries == 53, "not-discovered filter now also hides AIQ and CKS (got "
     .. #ringList.entries .. ")")
+
+-- The game's travel-log variables arrive: BJQ and DLR become discovered.
+gameVarsReady = true
+for _ = 1, 10 do fire("ServerLogic", nil) end
+check(#ringList.entries == 51, "travel-log variables hide BJQ and DLR too (got " .. #ringList.entries .. ")")
+check(string.find(summary.content, "discovered", 1, true) ~= nil, "summary still shown")
+local bjqShown = false
+filterList:SetEntrySelected(1, true)
+filterList.hooks.ONSELECTIONCHANGED(filterList, 1, 1)
+for _, entry in ipairs(ringList.entries) do
+    if string.find(entry.label, "BJQ", 1, true) == 1 then
+        bjqShown = true
+        check(string.find(entry.label, "discovered", 1, true) ~= nil, "BJQ tagged discovered")
+        check(string.find(entry.label, "needs repair", 1, true) == nil, "used ring no longer says it needs repair")
+    end
+end
+check(bjqShown, "BJQ listed under All rings")
 
 print(failures == 0 and "mock game test passed" or (failures .. " check(s) failed"))
 if failures > 0 then

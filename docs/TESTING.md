@@ -52,12 +52,15 @@ Run `pon fairy-ring-codes`.
 - [ ] "Added recently" shows the 2026 rings (BKS, DIQ, DLP, AKP).
 - [ ] Closing and reopening the panel keeps the search and filter.
 
-### Automatic discovery (after the window IDs are in `log_reader.lua`)
-- [ ] Open the travel log. Within a few seconds, rings listed there get the
-      `[discovered]` tag and the summary count goes up.
-- [ ] Scroll to the bottom of the log; anything further down is picked up too.
+### Automatic discovery (travel-log variables)
+- [ ] Within a few seconds of logging in, without opening anything, the
+      summary's "discovered" count matches the number of rings in your travel log.
+- [ ] Spot-check a few: rings in your log are tagged `[discovered]`, rings
+      missing from it aren't.
 - [ ] "Not discovered yet" shows only rings missing from your log.
-- [ ] Zanaris (AIP) is not marked unless it's actually listed in your log.
+- [ ] Rings you've used no longer show `[needs repair]` / `[needs building]`.
+- [ ] Teleport to a ring you've never visited: it becomes `[discovered]`
+      within a few seconds.
 
 ### Suggested favourites
 - [ ] Both favourites filters list rings best first, and the details say why.

@@ -143,10 +143,20 @@ end)
 -- Game events
 --------------------------------------------------------------------------------
 
--- Reads visited rings from the game, once that source is configured.
+-- Reads your travel log from the game's variables. Only refreshes the panel
+-- when something actually changed.
+local lastGameKey = nil
 local function refreshFromGame()
     local visited = GameSource.ReadVisited()
-    if visited then
+    if visited == nil then
+        return
+    end
+    local codes = {}
+    for code in pairs(visited) do table.insert(codes, code) end
+    table.sort(codes)
+    local key = table.concat(codes, ",")
+    if key ~= lastGameKey then
+        lastGameKey = key
         Visited.SetFromGame(visited)
         refreshAll()
     end
@@ -155,6 +165,9 @@ end
 -- How often to read the game's fairy ring windows while one is open, in
 -- server ticks (0.6 s each). Re-reading lets scrolling reveal more rows.
 local READ_EVERY_SERVER_TICKS = 3
+-- How often to re-read the travel-log variables (they also trigger a re-read
+-- when the game sends them, but this catches values that arrive after login).
+local GAME_VARS_EVERY_SERVER_TICKS = 10
 local serverTicks = 0
 
 -- Reads the game's travel log / dial screen if one is open, and records any
@@ -177,6 +190,9 @@ Event.ServerLogic.Subscribe("fairyCharacter", function()
     if serverTicks % READ_EVERY_SERVER_TICKS == 0 then
         readGameWindows()
     end
+    if serverTicks % GAME_VARS_EVERY_SERVER_TICKS == 0 and loadedCharacter ~= nil then
+        refreshFromGame()
+    end
     local ok, name = pcall(function()
         if Player.IsAvailable() then
             return Player.GetEntity().displayName
@@ -186,12 +202,13 @@ Event.ServerLogic.Subscribe("fairyCharacter", function()
     if ok and name and name ~= loadedCharacter then
         loadedCharacter = name
         Visited.UseCharacter(name)
+        lastGameKey = nil
         refreshFromGame()
         refreshAll()
     end
 end)
 
--- Game variables: only used once game_source.lua knows which ones to watch.
+-- The travel-log variables changed (e.g. you reached a new ring).
 Event.VarTransmit.Subscribe("fairyVars", function(event)
     if GameSource.IsOurVariable(event) then
         refreshFromGame()

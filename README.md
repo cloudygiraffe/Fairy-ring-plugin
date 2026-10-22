@@ -31,10 +31,10 @@ The panel (open from the Plugins ribbon window) has:
   Tags show `[needs repair]`, `[needs building]`, `[new]` and `[discovered]`.
 - **Details** for the selected ring: its requirement, exactly what to do if it
   needs repairing or building, tips, and when it was added.
-- **Automatic discovery:** open the game's fairy ring travel log (and scroll
-  through it) and every ring listed there is marked as discovered. The game
-  only lists rings you've been to, so whatever is missing goes into the
-  **Not discovered yet** filter.
+- **Automatic discovery:** the plugin reads your travel log straight from the
+  game, with no window open and no permissions, so every ring you've been to
+  is marked as discovered and the rest go into the **Not discovered yet**
+  filter. Rings you've used also stop showing `[needs repair]`.
 - **Suggested favourites** for clue scrolls and for travel, best first, with
   the reason for each. The plugin can't set your in-game favourites for you
   (that would be acting on your behalf), but it shows which ones to set.
@@ -68,23 +68,22 @@ duplicating.
 
 ## How discovery works
 
-Plugins can read the text in the game's own windows. While the fairy ring
-dial screen or travel log is open, the plugin reads every ring code and place
-name in it every couple of seconds. It never clicks or scrolls anything
-itself. If the game only builds the rows you can see, scrolling through the
-log lets it read the rest.
+The game keeps your travel log in 64 variables, one per code
+(`FAIRYRINGS_LOG_AIP` to `FAIRYRINGS_LOG_DLS`, varbits -12080 to -12143,
+packed into VarPlayers 2482 and 2483). They're listed in the client's own
+variable list (console command `pan VarPlayer`, October 22nd, 2026 beta
+client). `src/sources/game_source.lua` reads them every few seconds and
+whenever the game sends a change.
 
-**Still to do on the beta world:** the window IDs aren't documented, so the
-discovery tool in `tools/fairy-discovery` finds them. They go into
-`src/sources/log_reader.lua` (one line). The same tool also looks for a game
-variable that records visits, which would make detection work without opening
-the log at all (`src/sources/game_source.lua`).
+As a backup, the plugin can also read ring codes from the travel log window
+while it's open (`src/sources/log_reader.lua`); that needs the window's
+interface ID from `tools/fairy-discovery`.
 
 ## Plugin guidelines
 
 - Shows only public information (the Wiki's ring list) and your own progress.
-- Only reads the game's fairy ring windows; it never clicks, scrolls, dials or
-  changes them, and never sets favourites for you.
+- Only reads your travel log and the game's fairy ring windows; it never
+  clicks, scrolls, dials or changes them, and never sets favourites for you.
 - Never sends input or performs actions.
 - Needs no permissions.
 
@@ -133,8 +132,8 @@ filter). The tests will catch duplicate or impossible codes.
 
 - [ ] Replace `contactEmailAddress` in `plugin.json`.
 - [ ] Test every item in [docs/TESTING.md](docs/TESTING.md).
-- [ ] Add the travel log and dial screen IDs to `log_reader.lua`.
-- [ ] Wire up `game_source.lua` if the discovery tool finds the variable.
+- [ ] Confirm on the beta world that the discovered rings match your travel log.
+- [ ] Optional: add the travel log window ID to `log_reader.lua` as a backup.
 - [ ] Re-read every file: Jagex's AI policy requires the author to have reviewed
       and understood all submitted code.
 

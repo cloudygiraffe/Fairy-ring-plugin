@@ -28,7 +28,8 @@ local SETUP_TAGS = {
 -- List entries are plain text, so tags are written in brackets.
 function Display.ListLabel(ring, isVisited, recentSince)
     local tags = {}
-    if ring.setup then
+    -- A ring you've already used has obviously been repaired or built.
+    if ring.setup and not isVisited then
         table.insert(tags, SETUP_TAGS[ring.setup.kind] or "needs setup")
     end
     if recentSince and Dates.IsOnOrAfter(ring.added, recentSince) then
@@ -61,8 +62,10 @@ function Display.Details(ring, visitState)
     else
         table.insert(lines, colour("No extra requirements", MUTED_COLOUR))
     end
-    if ring.setup then
+    if ring.setup and visitState == nil then
         table.insert(lines, colour(ring.setup.detail, WARNING_COLOUR))
+    elseif ring.setup then
+        table.insert(lines, colour("Set up already (you've used this ring)", MUTED_COLOUR))
     end
     if ring.note then
         table.insert(lines, "Tip: " .. ring.note)
@@ -99,7 +102,7 @@ function Display.Summary(rings, visitedSet)
         if visitedSet[ring.code] then
             visitedCount = visitedCount + 1
         end
-        if ring.setup then
+        if ring.setup and not visitedSet[ring.code] then
             setupCount = setupCount + 1
         end
     end
